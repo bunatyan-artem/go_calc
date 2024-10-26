@@ -100,8 +100,13 @@ func Priority(c uint8) uint8 {
 }
 
 func ElementaryCalculation(nums *StackFloat64, op uint8) error {
-	num2, _ := nums.pop()
-	num1, _ := nums.pop()
+	num2, err1 := nums.pop()
+	num1, err2 := nums.pop()
+
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("error: ElementaryCalculation was called with less than 2 nums in stack")
+	}
+
 	switch op {
 	case '+':
 		nums.push(num1 + num2)
@@ -137,9 +142,12 @@ func Calc(expression string) (float64, error) {
 		if c == ' ' {
 			continue
 		} else if c == '(' {
+			if IsDigit(lastC) {
+				return 0, fmt.Errorf("error: num before '('")
+			}
 			ops.push('(')
 		} else if c == ')' {
-			if !IsDigit(lastC) {
+			if !IsDigit(lastC) && lastC != ')' {
 				return 0, fmt.Errorf("error: wrong input (%d)", i)
 			}
 			for {

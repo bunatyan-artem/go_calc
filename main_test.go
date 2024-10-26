@@ -36,10 +36,21 @@ var tests = []Test{
 	{"text5", 0, true},
 	{"t+ 6", 0, true},
 	{"2 + 1*", 0, true},
+	{"2 + 3)", 0, true},
+	{"(2+(3+4))", 9, false},
+	{"3(2 + 3)", 0, true},
+	{"(+ 2 + 3)", 0, true},
 }
 
 func TestCalc(t *testing.T) {
 	for i, test := range tests {
+
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("#%d: panic in test \"%s\" - %s", i, test.expression, r)
+			}
+		}()
+
 		answer, err := Calc(test.expression)
 		if answer != test.answer && !test.err {
 			t.Errorf("#%d: %s=%g; want %g", i, test.expression, answer, test.answer)

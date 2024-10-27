@@ -44,21 +44,24 @@ var tests = []Test{
 
 func TestCalc(t *testing.T) {
 	for i, test := range tests {
+		_TestCalc(t, i, &test)
+	}
+}
 
-		defer func() {
-			if r := recover(); r != nil {
-				t.Errorf("#%d: panic in test \"%s\" - %s", i, test.expression, r)
-			}
-		}()
+func _TestCalc(t *testing.T, i int, test *Test) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("#%d: panic in test \"%s\" - %s", i, test.expression, r)
+		}
+	}()
 
-		answer, err := Calc(test.expression)
-		if answer != test.answer && !test.err {
-			t.Errorf("#%d: %s=%g; want %g", i, test.expression, answer, test.answer)
-		}
-		if err == nil && test.err {
-			t.Errorf("#%d: \"%s\"; throw nil, want error", i, test.expression)
-		} else if err != nil && !test.err {
-			t.Errorf("#%d: \"%s\"; throw %s, want nil", i, test.expression, err)
-		}
+	answer, err := Calc(test.expression)
+	if answer != test.answer && !test.err {
+		t.Errorf("#%d: %s=%g; want %g", i, test.expression, answer, test.answer)
+	}
+	if err == nil && test.err {
+		t.Errorf("#%d: \"%s\"; throw nil, want error", i, test.expression)
+	} else if err != nil && !test.err {
+		t.Errorf("#%d: \"%s\"; throw %s, want nil", i, test.expression, err)
 	}
 }

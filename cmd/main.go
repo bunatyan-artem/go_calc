@@ -1,13 +1,13 @@
 package main
 
 import (
-	"calculator/internal/application"
+	"calculator/internal/orchestrator"
 	"log"
 )
 
 func main() {
-	app := application.NewApplication()
-	err := app.Run("8080")
+	orch := orchestrator.NewApplication()
+	err := orch.Run("8080")
 	if err != nil {
 		log.Fatal(err)
 	}

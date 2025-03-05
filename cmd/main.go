@@ -6,8 +6,9 @@ import (
 )
 
 func main() {
+	port := "8080"
 	orch := orchestrator.NewApplication()
-	err := orch.Run("8080")
+	err := orch.Run(port)
 	if err != nil {
 		log.Fatal(err)
 	}

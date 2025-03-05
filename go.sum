@@ -1,4 +1,6 @@
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 gopkg.in/fifo.v0 v0.0.1 h1:tFxpv2FO1ZYwNCVsySQVXyYb2fu8Wjesc/l+46SrGBM=
 gopkg.in/fifo.v0 v0.0.1/go.mod h1:9umdwHFXza3J5Lo7UMbY09IRp3iWqSYD8tQdHLWJIuw=

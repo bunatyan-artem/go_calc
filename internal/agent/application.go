@@ -10,11 +10,11 @@ import (
 )
 
 type Task struct {
-	Id             int     `json:"id"`
-	Arg1           float64 `json:"arg_1"`
-	Arg2           float64 `json:"arg_2"`
-	Operation      uint8   `json:"operation"`
-	Operation_time int     `json:"operation_time"`
+	Id            int     `json:"id"`
+	Arg1          float64 `json:"arg1"`
+	Arg2          float64 `json:"arg2"`
+	Operation     uint8   `json:"operation"`
+	OperationTime int     `json:"operation_time"`
 }
 
 type Response struct {
@@ -56,11 +56,13 @@ func (agent *Application) getTask() (*Task, error) {
 		return nil, err
 	}
 
+	log.Printf("agent %v get task with id = %v", agent.id, task.Id)
 	return &task, nil
 }
 
 func (agent *Application) sendResult(task *Task) error {
 	data := Response{task.Id, calc(task)}
+	log.Printf("agent %v send result with id = %v", agent.id, task.Id)
 	response, _ := json.Marshal(data)
 
 	url := "http://localhost:" + agent.port + "/internal/task"
@@ -88,7 +90,7 @@ func (agent *Application) work() {
 		return
 	}
 
-	time.Sleep(time.Duration(task.Operation_time) * time.Millisecond)
+	time.Sleep(time.Duration(task.OperationTime) * time.Millisecond)
 	if err := agent.sendResult(task); err != nil {
 		panic(err)
 	}
@@ -97,18 +99,16 @@ func (agent *Application) work() {
 }
 
 type Application struct {
-	id     uint8
+	id     int
 	port   string
 	client *http.Client
 }
 
-func NewApplication(id uint8, port string) *Application {
+func NewApplication(id int, port string) *Application {
 	return &Application{id, port, &http.Client{}}
 }
 
-func (agent *Application) Run(port string) error {
+func (agent *Application) Run() {
 	log.Printf("Agent %v started", agent.id)
 	agent.work()
-
-	return nil
 }

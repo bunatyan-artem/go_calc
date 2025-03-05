@@ -10,13 +10,13 @@ import (
 
 type Tree struct {
 	Root   *Node
-	Flag   uint8
+	Flag   uint8 // 1 - processing, 2 - done, 3 - expression with division by zero
 	Result float64
 }
 
 type Node struct {
 	Val    interface{}
-	Flag   uint8
+	Flag   uint8 // 1 - waiting (cant be done), 2 - can be done, 3 - args, 4 - processing, 5 - might be skipped
 	Left   *Node
 	Right  *Node
 	Parent *Node
@@ -62,9 +62,17 @@ func fillFlags(node *Node, list *[]*Node) {
 
 	if node.Left == nil && node.Right == nil {
 		node.Flag = 3
+		return
 	} else if node.Left == nil || node.Right == nil {
 		panic("Non-full tree")
-	} else if node.Left.Flag == 3 && node.Right.Flag == 3 {
+	}
+	if node.Left.Flag == 0 {
+		fillFlags(node.Left, list)
+	}
+	if node.Right.Flag == 0 {
+		fillFlags(node.Right, list)
+	}
+	if node.Left.Flag == 3 && node.Right.Flag == 3 {
 		node.Flag = 2
 		*list = append(*list, node)
 	} else {
@@ -132,7 +140,7 @@ func NewTree(expr string) (*Tree, *[]*Node) {
 		return &Tree{Flag: 15}, nil
 	}
 
-	list := make([]*Node, 1)
+	list := make([]*Node, 0)
 	fillFlags(head, &list)
 	return &Tree{Root: head}, &list
 }

@@ -2,13 +2,26 @@
 
 ## Описание
 
-Веб-сервис. Пользователь отправляет арифметическое выражение по HTTP и получает в ответ его результат. Выражение может содержать в себе скобки приоритета, не поддерживается унарный минус и нецелые числа во входных данных.
+Веб-сервис. Пользователь отправляет арифметическое выражение по HTTP и может получить ответ. Выражение может содержать в себе скобки приоритета, не поддерживается унарный минус. Состоит из двух частей: оркестратор и агент.
+
+Оркестратор принимает запросы от пользователей и агентов. При получении выражения оно разбивается на AST-дерево для дальнейшего выполнения агентами элементарных операций.
+
+Агент периодически делает запрос оркестратору на получение задачи. Если задача есть - выполняет ее и передает ответ.
 
 ---
 
 ## Запуск
 
-go version 1.23.0
+go version 1.23.1
+
+Установка зависимостей
+```
+go mod tidy
+```
+
+Переменные среды можно поменять в [.env](.env) файле
+
+Запуск
 
 ```
 go run cmd/main.go
@@ -16,42 +29,31 @@ go run cmd/main.go
 
 Порт 8080 (можно поменять в [main.go](cmd/main.go))
 
+## Эндпоинты
+
+| Эндпоинт                | Метод | Описание                                                     |
+|-------------------------|-------|--------------------------------------------------------------|
+| /api/v1/calculate       | POST  | Отправка выражения и получение id                            |
+| /api/v1/expressions     | GET   | Получение списка всех выражений и статусов (ответ если есть) |
+| /api/v1/expressions/:id | GET   | Получение выражения по id и его статуса (ответ если есть)    |
+| /internal/task          | GET   | Взаимодействие оркестратора и агента - отправка задачи       |
+| /internal/task          | POST  | Взаимодействие оркестратора и агента - получение результата  |
+
 ## Примеры использования
 
-Запрос без ошибок
-```
-curl -X POST http://localhost:8080/api/v1/calculate \
--H "Content-Type: application/json" \
--d '{"expression":"2 * (2 + 2)"}'
-```
-code 200
-```
-{
-    "result": 8
-}
-```
+| /api/v1/calculate                                                                                                                                 | Ответ            | Status |
+|---------------------------------------------------------------------------------------------------------------------------------------------------|------------------|--------|
+| ```curl --location 'localhost:8080/api/v1/calculate' --header 'Content-Type: application/json' --data '{"expression": "2 + 2 * 2 - 2"}'```        | ```{"id":"0"}``` | 201    |
+| ```curl --location 'localhost:8080/api/v1/calculate' --header 'Content-Type: application/json' --data '{"expresion": "2 + 2 * 2 - 2"}'```         |                  | 422    |
+| ```curl --location 'localhost:8080/api/v1/calculate' --header 'Content-Type: application/json' --data '{"expression": "2 + 2 * 2 - "}'```         |                  | 422    |
+| ```curl -X GET --location 'localhost:8080/api/v1/calculate' --header 'Content-Type: application/json' --data '{"expression": "2 + 2 * 2 - 2"}'``` |                  | 500    |
 
-Запрос с плохим expression
-```
-curl -X POST http://localhost:8080/api/v1/calculate \
--H "Content-Type: application/json" \
--d '{"expression":"2 * (2 + 2"}'
-```
-code 422
-```
-{
-    "error": "Expression is not valid"
-}
-```
-Неправильный запрос
-```
-curl -X Get http://localhost:8080/api/v1/calculate \
--H "Content-Type: application/json" \
--d '{"expression":"2 * (2 + 2)"}'
-```
-code 500
-```
-{
-    "error": "Internal server error"
-}
-```
+| /api/v1/expressions                                               | Ответ                                                             | Status  |
+|-------------------------------------------------------------------|-------------------------------------------------------------------|---------|
+| ```curl --location 'localhost:8080/api/v1/expressions'```         | ```{"expressions": [{"id": 0, "status": "done", "result": 4}]}``` | 200     |
+| ```curl -X POST --location 'localhost:8080/api/v1/expressions'``` |                                                                   | 500     |
+
+| /api/v1/expressions/:id                                             | Ответ                                          | Status  |
+|---------------------------------------------------------------------|------------------------------------------------|---------|
+| ```curl --location 'localhost:8080/api/v1/expressions/0'```         | ```{"id": 0, "status": "done", "result": 4}``` | 200     |
+| ```curl -X POST --location 'localhost:8080/api/v1/expressions/0'``` |                                                | 500     |

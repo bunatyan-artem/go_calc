@@ -68,10 +68,6 @@ func expressionInfo(id int) ExpressionInfo {
 }
 
 func operationTime(op uint8) int {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
 	switch op {
 	case '+':
 		res, _ := strconv.Atoi(os.Getenv("TIME_ADDITION_MS"))
@@ -243,12 +239,14 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(200)
 
 	muTaskId.Lock()
+
 	muSentTasks.Lock()
 	SentTasks[TaskId] = task
 	muSentTasks.Unlock()
-	TaskId++
 
+	TaskId++
 	task.Flag = 4
+
 	json.NewEncoder(w).Encode(Task{
 		TaskId - 1,
 		reflect.Indirect(reflect.ValueOf(task.Left.Val)).Convert(reflect.TypeOf(float64(0))).Float(),
@@ -319,6 +317,10 @@ func NewApplication() *Orchestrator {
 }
 
 func (app *Orchestrator) Run(port string) error {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	m := mux.NewRouter()
 	Queue = fifo.New[*Node](1)
 

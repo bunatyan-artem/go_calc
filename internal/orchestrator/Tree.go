@@ -15,8 +15,9 @@ type Tree struct {
 }
 
 type Node struct {
-	Val    interface{}
-	Flag   uint8 // 1 - waiting (cant be done), 2 - can be done, 3 - args, 4 - processing, 5 - might be skipped
+	Val  interface{}
+	Flag uint8 // 1 - waiting (cant be done), 2 - can be done, 3 - arg (leaf),
+	// 4 - processing, 5 - might be skipped, 15 - invalid expression
 	Left   *Node
 	Right  *Node
 	Parent *Node

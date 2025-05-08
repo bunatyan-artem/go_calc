@@ -1,7 +1,10 @@
 package orchestrator
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"gopkg.in/fifo.v0"
@@ -10,8 +13,15 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
+
+type User struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
 
 type Expression struct {
 	Expression string `json:"expression"`
@@ -44,6 +54,8 @@ type Result struct {
 	Result float64 `json:"result"`
 }
 
+var jwtKey = []byte("very_big_secret")
+
 var Trees []*Tree            // all expressions
 var Queue *fifo.Queue[*Node] // tasks that might be done
 var SentTasks = make(map[int]*Node)
@@ -53,6 +65,19 @@ var muTaskId sync.Mutex
 var muNodeFlagsRemarking sync.Mutex
 var muSentTasks sync.Mutex
 var muQueue sync.Mutex
+
+func GenerateJWT(login string) (string, error) {
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["login"] = login
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+}
 
 func expressionInfo(id int) ExpressionInfo {
 	status := ""
@@ -310,6 +335,91 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 	muNodeFlagsRemarking.Unlock()
 }
 
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if checkExistByLogin(user.Login) {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Login already exists"})
+		return
+	}
+
+	registerUser(user)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "User registered successfully"})
+}
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !checkExistByLoginPassword(user.Login, user.Password) {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		return
+	}
+
+	tokenString, err := GenerateJWT(user.Login)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+}
+
+func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header.Get("Authorization")
+		if tokenString == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Missing token"})
+			return
+		}
+
+		// Удаляем префикс "Bearer "
+		tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtKey, nil
+		})
+
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid token"})
+			return
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			login := claims["login"].(string) // Get login from claims
+
+			// Create a new context with the login value
+			ctx := context.WithValue(r.Context(), "login", login)
+			// Create a new request with the updated context
+			r = r.WithContext(ctx)
+
+			next(w, r)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid token claims"})
+		}
+	}
+}
+
 type Orchestrator struct{}
 
 func NewApplication() *Orchestrator {
@@ -323,6 +433,9 @@ func (app *Orchestrator) Run(port string) error {
 
 	m := mux.NewRouter()
 	Queue = fifo.New[*Node](1)
+
+	m.HandleFunc("/api/v1/register", RegisterHandler)
+	m.HandleFunc("/api/v1/login", LoginHandler)
 
 	m.HandleFunc("/api/v1/calculate", HandleSendExpr)
 	m.HandleFunc("/api/v1/expressions", HandleGetExprs)

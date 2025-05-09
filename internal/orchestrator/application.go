@@ -110,7 +110,7 @@ func operationTime(op uint8) int {
 	panic("invalid operation when attempted to send task")
 }
 
-func isDivByZero(task *Node) bool {
+func isNotDivByZero(task *Node) bool {
 	return uint8(reflect.ValueOf(task.Val).Uint()) != '/' ||
 		reflect.Indirect(reflect.ValueOf(task.Right.Val)).Convert(reflect.TypeOf(float64(0))).Float() != 0
 }
@@ -122,6 +122,45 @@ func clean(node *Node) { //marks all nodes that might be skipped beginning from 
 	node.Flag = 5
 	clean(node.Left)
 	clean(node.Right)
+}
+
+func fillTrees() {
+	rows := getExprs()
+	if rows == nil {
+		return
+	}
+
+	for rows.Next() {
+		var id int
+		var login string
+		var expression string
+		var status uint8
+		var result float64
+
+		err := rows.Scan(&id, &login, &expression, &status, &result)
+		if err != nil {
+			log.Fatalf("Ошибка сканирования строки: %v", err)
+		}
+		if id-1 != len(Trees) {
+			panic("Expr from db came with wrong id")
+		}
+
+		tree := &Tree{Flag: status, Result: result, Login: login}
+		if status == 1 {
+			tempTree, nodes := NewTree(expression)
+			tree.Root = tempTree.Root
+
+			for _, node := range *nodes {
+				muQueue.Lock()
+				if Queue.Len() == Queue.Cap() {
+					_ = Queue.Resize(Queue.Cap() + 1)
+				}
+				Queue.Enqueue(node)
+				muQueue.Unlock()
+			}
+		}
+		Trees = append(Trees, tree)
+	}
 }
 
 func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +184,15 @@ func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(422)
 		return
 	}
+
+	login, ok := r.Context().Value("login").(string)
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Login not found in context"})
+		return
+	}
+
+	registerExpression(login, expr.Expression)
 
 	tree.Flag = 1
 	Trees = append(Trees, tree)
@@ -171,9 +219,19 @@ func HandleGetExprs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	login, ok := r.Context().Value("login").(string)
+	log.Println(login)
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Login not found in context"})
+		return
+	}
+
 	var exprs []ExpressionInfo
 	for id := range Trees {
-		exprs = append(exprs, expressionInfo(id))
+		if Trees[id].Login == login {
+			exprs = append(exprs, expressionInfo(id))
+		}
 	}
 
 	w.WriteHeader(200)
@@ -197,7 +255,14 @@ func HandleGetExpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if id >= len(Trees) {
+	login, ok := r.Context().Value("login").(string)
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Login not found in context"})
+		return
+	}
+
+	if id < 0 || id >= len(Trees) || Trees[id].Login != login {
 		w.WriteHeader(404)
 		return
 	}
@@ -235,7 +300,7 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 			continue
 		}
 
-		if isDivByZero(task) {
+		if isNotDivByZero(task) {
 			break
 		}
 
@@ -246,9 +311,11 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 		}
 
 		var tree *Tree
-		for _, t := range Trees {
+		var id uint16
+		for i, t := range Trees {
 			if t.Root == task {
 				tree = t
+				id = uint16(i)
 				break
 			}
 		}
@@ -259,6 +326,8 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 
 		tree.Flag = 3
 		clean(tree.Root)
+
+		setResult(id, 3, 0)
 	}
 
 	w.WriteHeader(200)
@@ -309,15 +378,20 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 
 	if task.Parent == nil {
 		var tree *Tree
-		for _, t := range Trees {
+		var id uint16
+		for i, t := range Trees {
 			if t.Root == task {
 				tree = t
+				id = uint16(i)
 				break
 			}
 		}
 
 		tree.Flag = 2
 		tree.Result = result.Result
+
+		setResult(id, 2, result.Result)
+
 		return
 	}
 
@@ -388,7 +462,6 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Удаляем префикс "Bearer "
 		tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -431,15 +504,18 @@ func (app *Orchestrator) Run(port string) error {
 		log.Fatal("Error loading .env file")
 	}
 
-	m := mux.NewRouter()
 	Queue = fifo.New[*Node](1)
+	fillTrees()
+
+	m := mux.NewRouter()
 
 	m.HandleFunc("/api/v1/register", RegisterHandler)
 	m.HandleFunc("/api/v1/login", LoginHandler)
 
-	m.HandleFunc("/api/v1/calculate", HandleSendExpr)
-	m.HandleFunc("/api/v1/expressions", HandleGetExprs)
-	m.HandleFunc("/api/v1/expressions/{id:[0-9]+}", HandleGetExpr)
+	m.HandleFunc("/api/v1/calculate", AuthMiddleware(HandleSendExpr))
+	m.HandleFunc("/api/v1/expressions", AuthMiddleware(HandleGetExprs))
+	m.HandleFunc("/api/v1/expressions/{id:[0-9]+}", AuthMiddleware(HandleGetExpr))
+
 	m.HandleFunc("/internal/task", HandleInternal)
 
 	log.Printf("Runnig on port %s", port)

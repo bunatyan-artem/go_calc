@@ -12,6 +12,7 @@ type Tree struct {
 	Root   *Node
 	Flag   uint8 // 1 - processing, 2 - done, 3 - expression with division by zero
 	Result float64
+	Login  string
 }
 
 type Node struct {

@@ -73,3 +73,61 @@ func registerUser(user User) {
 		return
 	}
 }
+
+func registerExpression(login, expression string) {
+	muSQL.Lock()
+	defer muSQL.Unlock()
+
+	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	if err != nil {
+		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
+	}
+	defer db.Close()
+
+	query := "INSERT INTO expressions (login, expression) VALUES (?, ?)"
+
+	_, err = db.Exec(query, login, expression)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса: %v", err)
+		return
+	}
+}
+
+func setResult(id uint16, status uint8, result float64) {
+	muSQL.Lock()
+	defer muSQL.Unlock()
+
+	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	if err != nil {
+		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
+	}
+	defer db.Close()
+
+	query := "UPDATE expressions SET status = ?, result = ? WHERE id = ?"
+
+	_, err = db.Exec(query, status, result, id)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса: %v", err)
+		return
+	}
+}
+
+func getExprs() *sql.Rows {
+	muSQL.Lock()
+	defer muSQL.Unlock()
+
+	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	if err != nil {
+		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
+	}
+	defer db.Close()
+
+	query := "SELECT * FROM expressions ORDER BY id ASC"
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса: %v", err)
+		return nil
+	}
+	return rows
+}

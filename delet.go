@@ -7,40 +7,74 @@ import (
 	"log"
 )
 
-func main() {
-	db, err := sql.Open("sqlite3", "data.db") // Открываем или создаем базу данных file.db
+func getExprs() *sql.Rows {
+	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 	}
 	defer db.Close()
 
-	// Создаем таблицу users
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			login TEXT PRIMARY KEY,
-			password TEXT NOT NULL
-		);
-	`)
+	query := "SELECT * FROM expressions ORDER BY id ASC"
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса: %v", err)
+		return nil
+	}
+	return rows
+}
+
+func print() {
+	rows := getExprs()
+	if rows == nil {
+		return
+	}
+
+	for rows.Next() {
+		var id int
+		var login string
+		var expression string
+		var status uint8
+		var result float64
+
+		err := rows.Scan(&id, &login, &expression, &status, &result)
+		if err != nil {
+			log.Fatalf("Ошибка сканирования строки: %v", err)
+		}
+		log.Println(id, login, expression, status, result)
+	}
+}
+
+func clear() {
+	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	if err != nil {
+		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
+	}
+	defer db.Close()
+
+	tableName := "expressions" // Replace with your table name
+
+	// 1. Delete all rows
+	_, err = db.Exec("DELETE FROM " + tableName)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Таблица 'users' успешно создана.")
+	fmt.Println("All rows deleted from", tableName)
 
-	// Создаем таблицу expressions
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS expressions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			login TEXT,
-			expression TEXT NOT NULL,
-			status INTEGER DEFAULT 1,
-			result REAL DEFAULT 0,
-			FOREIGN KEY (login) REFERENCES users(login)
-		);
-	`)
+	// 2. Reset the autoincrement counter (if applicable)
+	_, err = db.Exec("DELETE FROM sqlite_sequence WHERE name='" + tableName + "'")
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error resetting autoincrement:", err) // Log the error, but don't fatal
+		// It's okay if this fails if the table doesn't have autoincrement
+	} else {
+		fmt.Println("Autoincrement counter reset for", tableName)
 	}
-	fmt.Println("Таблица 'expressions' успешно создана.")
 
-	fmt.Println("База данных и таблицы созданы успешно!")
+	fmt.Println("Table truncated (simulated) successfully.")
+}
+
+func main() {
+	print()
+	clear()
+	print()
 }

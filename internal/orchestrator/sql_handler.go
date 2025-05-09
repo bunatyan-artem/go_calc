@@ -105,7 +105,7 @@ func setResult(id uint16, status uint8, result float64) {
 
 	query := "UPDATE expressions SET status = ?, result = ? WHERE id = ?"
 
-	_, err = db.Exec(query, status, result, id)
+	_, err = db.Exec(query, status, result, id+1)
 	if err != nil {
 		log.Printf("Ошибка выполнения запроса: %v", err)
 		return

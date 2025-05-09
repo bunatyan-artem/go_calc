@@ -195,6 +195,7 @@ func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
 	registerExpression(login, expr.Expression)
 
 	tree.Flag = 1
+	tree.Login = login
 	Trees = append(Trees, tree)
 	for _, node := range *nodes {
 		muQueue.Lock()
@@ -220,7 +221,6 @@ func HandleGetExprs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	login, ok := r.Context().Value("login").(string)
-	log.Println(login)
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Login not found in context"})

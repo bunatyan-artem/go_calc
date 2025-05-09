@@ -7,13 +7,15 @@ import (
 	"sync"
 )
 
+var dbPath string = "data.db"
+
 var muSQL sync.Mutex
 
 func checkExistByLogin(login string) bool {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 		return false
@@ -36,7 +38,7 @@ func checkExistByLoginPassword(login, password string) bool {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 		return false
@@ -59,7 +61,7 @@ func registerUser(user User) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 		return
@@ -78,7 +80,7 @@ func registerExpression(login, expression string) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 	}
@@ -97,7 +99,7 @@ func setResult(id uint16, status uint8, result float64) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 	}
@@ -116,7 +118,7 @@ func getExprs() *sql.Rows {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
-	db, err := sql.Open("sqlite3", "/home/ren/GolandProjects/go_calc/data.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Printf("Ошибка открытия соединения с базой данных: %v", err)
 	}

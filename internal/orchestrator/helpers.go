@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"calculator/internal/orchestrator/sql"
 	"github.com/dgrijalva/jwt-go"
 	"gopkg.in/fifo.v0"
 	"log"
@@ -10,11 +11,6 @@ import (
 	"sync"
 	"time"
 )
-
-type User struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-}
 
 type Expression struct {
 	Expression string `json:"expression"`
@@ -118,7 +114,7 @@ func clean(node *Node) { //marks all nodes that might be skipped beginning from 
 }
 
 func fillTrees() {
-	rows := getExprs()
+	rows := sql.GetExprs()
 	if rows == nil {
 		return
 	}

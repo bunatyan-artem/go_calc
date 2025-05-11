@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"calculator/internal/orchestrator/sql"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -41,7 +42,7 @@ func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	registerExpression(login, expr.Expression)
+	sql.RegisterExpression(login, expr.Expression)
 
 	tree.Flag = 1
 	tree.Login = login
@@ -176,7 +177,7 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 		tree.Flag = 3
 		clean(tree.Root)
 
-		setResult(id, 3, 0)
+		sql.SetResult(id, 3, 0)
 	}
 
 	w.WriteHeader(200)
@@ -239,7 +240,7 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 		tree.Flag = 2
 		tree.Result = result.Result
 
-		setResult(id, 2, result.Result)
+		sql.SetResult(id, 2, result.Result)
 
 		return
 	}
@@ -259,34 +260,34 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
-	var user User
+	var user sql.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if checkExistByLogin(user.Login) {
+	if sql.CheckExistByLogin(user.Login) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Login already exists"})
 		return
 	}
 
-	registerUser(user)
+	sql.RegisterUser(user)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "User registered successfully"})
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var user User
+	var user sql.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if !checkExistByLoginPassword(user.Login, user.Password) {
+	if !sql.CheckExistByLoginPassword(user.Login, user.Password) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
 		return

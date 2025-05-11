@@ -1,4 +1,4 @@
-package orchestrator
+package sql
 
 import (
 	"database/sql"
@@ -11,7 +11,12 @@ var dbPath string = "data.db"
 
 var muSQL sync.Mutex
 
-func checkExistByLogin(login string) bool {
+type User struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+func CheckExistByLogin(login string) bool {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
@@ -34,7 +39,7 @@ func checkExistByLogin(login string) bool {
 	return count > 0
 }
 
-func checkExistByLoginPassword(login, password string) bool {
+func CheckExistByLoginPassword(login, password string) bool {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
@@ -57,7 +62,7 @@ func checkExistByLoginPassword(login, password string) bool {
 	return count > 0
 }
 
-func registerUser(user User) {
+func RegisterUser(user User) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
@@ -76,7 +81,7 @@ func registerUser(user User) {
 	}
 }
 
-func registerExpression(login, expression string) {
+func RegisterExpression(login, expression string) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
@@ -95,7 +100,7 @@ func registerExpression(login, expression string) {
 	}
 }
 
-func setResult(id uint16, status uint8, result float64) {
+func SetResult(id uint16, status uint8, result float64) {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 
@@ -114,7 +119,7 @@ func setResult(id uint16, status uint8, result float64) {
 	}
 }
 
-func getExprs() *sql.Rows {
+func GetExprs() *sql.Rows {
 	muSQL.Lock()
 	defer muSQL.Unlock()
 

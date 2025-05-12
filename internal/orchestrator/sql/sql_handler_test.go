@@ -10,10 +10,10 @@ import (
 var db *sql.DB
 
 func setupTestDB() {
-	DbPath = "test.db"
+	DbPath = "file:testdb?mode=memory&cache=shared"
 
 	var err error
-	db, err = sql.Open("sqlite3", "test.db")
+	db, err = sql.Open("sqlite3", DbPath)
 	if err != nil {
 		log.Fatalf("Ошибка открытия базы данных: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestSetResult(t *testing.T) {
 		log.Fatalf("не удалось закрыть бд: %v", err)
 	}
 	SetResult(uint16(id-1), 2, 4.0)
-	db, err = sql.Open("sqlite3", "test.db")
+	db, err = sql.Open("sqlite3", DbPath)
 	if err != nil {
 		log.Fatalf("Ошибка открытия базы данных: %v", err)
 	}

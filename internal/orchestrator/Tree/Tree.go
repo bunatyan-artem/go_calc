@@ -1,4 +1,4 @@
-package orchestrator
+package Tree
 
 import (
 	"go/ast"
@@ -10,7 +10,7 @@ import (
 
 type Tree struct {
 	Root   *Node
-	Flag   uint8 // 1 - processing, 2 - done, 3 - expression with division by zero
+	Flag   uint8 // 1 - processing, 2 - done, 3 - expression with division by zero, 15 - invalid expression
 	Result float64
 	Login  string
 }
@@ -144,5 +144,5 @@ func NewTree(expr string) (*Tree, *[]*Node) {
 
 	list := make([]*Node, 0)
 	fillFlags(head, &list)
-	return &Tree{Root: head}, &list
+	return &Tree{Root: head, Flag: 1}, &list
 }

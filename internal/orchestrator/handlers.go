@@ -1,6 +1,8 @@
 package orchestrator
 
 import (
+	"calculator/internal/orchestrator/Tree"
+	"calculator/internal/orchestrator/helpers"
 	"calculator/internal/orchestrator/sql"
 	"context"
 	"encoding/json"
@@ -21,14 +23,14 @@ func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expr := Expression{}
+	expr := helpers.Expression{}
 	err := json.NewDecoder(r.Body).Decode(&expr)
 	if err != nil {
 		w.WriteHeader(500)
 		return
 	}
 
-	tree, nodes := NewTree(expr.Expression)
+	tree, nodes := Tree.NewTree(expr.Expression)
 
 	if tree.Flag == 15 {
 		w.WriteHeader(422)
@@ -44,21 +46,20 @@ func HandleSendExpr(w http.ResponseWriter, r *http.Request) {
 
 	sql.RegisterExpression(login, expr.Expression)
 
-	tree.Flag = 1
 	tree.Login = login
-	Trees = append(Trees, tree)
+	helpers.Trees = append(helpers.Trees, tree)
 	for _, node := range *nodes {
-		muQueue.Lock()
-		if Queue.Len() == Queue.Cap() {
-			_ = Queue.Resize(Queue.Cap() + 1)
+		helpers.MuQueue.Lock()
+		if helpers.Queue.Len() == helpers.Queue.Cap() {
+			_ = helpers.Queue.Resize(helpers.Queue.Cap() + 1)
 		}
-		Queue.Enqueue(node)
-		muQueue.Unlock()
+		helpers.Queue.Enqueue(node)
+		helpers.MuQueue.Unlock()
 	}
 
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(Id{
-		Id: len(Trees) - 1,
+	json.NewEncoder(w).Encode(helpers.Id{
+		Id: len(helpers.Trees) - 1,
 	})
 }
 
@@ -77,15 +78,15 @@ func HandleGetExprs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var exprs []ExpressionInfo
-	for id := range Trees {
-		if Trees[id].Login == login {
-			exprs = append(exprs, expressionInfo(id))
+	var exprs []helpers.ExpressionInfo_
+	for id := range helpers.Trees {
+		if helpers.Trees[id].Login == login {
+			exprs = append(exprs, helpers.ExpressionInfo(id))
 		}
 	}
 
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(Expressions{
+	json.NewEncoder(w).Encode(helpers.Expressions{
 		Expressions: exprs,
 	})
 }
@@ -112,13 +113,13 @@ func HandleGetExpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if id < 0 || id >= len(Trees) || Trees[id].Login != login {
+	if id < 0 || id >= len(helpers.Trees) || helpers.Trees[id].Login != login {
 		w.WriteHeader(404)
 		return
 	}
 
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(expressionInfo(id))
+	json.NewEncoder(w).Encode(helpers.ExpressionInfo(id))
 }
 
 func HandleInternal(w http.ResponseWriter, r *http.Request) {
@@ -135,22 +136,22 @@ func HandleInternal(w http.ResponseWriter, r *http.Request) {
 func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var task *Node
+	var task *Tree.Node
 	for {
-		muQueue.Lock()
-		if Queue.Len() == 0 {
+		helpers.MuQueue.Lock()
+		if helpers.Queue.Len() == 0 {
 			w.WriteHeader(404)
-			muQueue.Unlock()
+			helpers.MuQueue.Unlock()
 			return
 		}
 
-		task, _ = Queue.Dequeue()
-		muQueue.Unlock()
+		task, _ = helpers.Queue.Dequeue()
+		helpers.MuQueue.Unlock()
 		if task.Flag == 5 { //if expression was skipped
 			continue
 		}
 
-		if isNotDivByZero(task) {
+		if helpers.IsNotDivByZero(task) {
 			break
 		}
 
@@ -160,9 +161,9 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 			task = task.Parent
 		}
 
-		var tree *Tree
+		var tree *Tree.Tree
 		var id uint16
-		for i, t := range Trees {
+		for i, t := range helpers.Trees {
 			if t.Root == task {
 				tree = t
 				id = uint16(i)
@@ -175,50 +176,50 @@ func HandleRequestTask(w http.ResponseWriter, _ *http.Request) {
 		}
 
 		tree.Flag = 3
-		clean(tree.Root)
+		helpers.Clean(tree.Root)
 
 		sql.SetResult(id, 3, 0)
 	}
 
 	w.WriteHeader(200)
 
-	muTaskId.Lock()
+	helpers.MuTaskId.Lock()
 
-	muSentTasks.Lock()
-	SentTasks[TaskId] = task
-	muSentTasks.Unlock()
+	helpers.MuSentTasks.Lock()
+	helpers.SentTasks[helpers.TaskId] = task
+	helpers.MuSentTasks.Unlock()
 
-	TaskId++
+	helpers.TaskId++
 	task.Flag = 4
 
-	json.NewEncoder(w).Encode(Task{
-		TaskId - 1,
+	json.NewEncoder(w).Encode(helpers.Task{
+		helpers.TaskId - 1,
 		reflect.Indirect(reflect.ValueOf(task.Left.Val)).Convert(reflect.TypeOf(float64(0))).Float(),
 		reflect.Indirect(reflect.ValueOf(task.Right.Val)).Convert(reflect.TypeOf(float64(0))).Float(),
 		uint8(reflect.ValueOf(task.Val).Uint()),
-		operationTime(uint8(reflect.ValueOf(task.Val).Uint())),
+		helpers.OperationTime(uint8(reflect.ValueOf(task.Val).Uint())),
 	})
-	muTaskId.Unlock()
+	helpers.MuTaskId.Unlock()
 }
 
 func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	result := Result{}
+	result := helpers.Result{}
 	err := json.NewDecoder(r.Body).Decode(&result)
 	if err != nil {
 		w.WriteHeader(500)
 		return
 	}
 
-	muSentTasks.Lock()
-	task, containsFlag := SentTasks[result.Id]
+	helpers.MuSentTasks.Lock()
+	task, containsFlag := helpers.SentTasks[result.Id]
 	if !containsFlag {
 		w.WriteHeader(404)
 		return
 	}
-	delete(SentTasks, result.Id)
-	muSentTasks.Unlock()
+	delete(helpers.SentTasks, result.Id)
+	helpers.MuSentTasks.Unlock()
 	w.WriteHeader(200)
 
 	task.Left = nil
@@ -227,9 +228,9 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 	task.Flag = 3
 
 	if task.Parent == nil {
-		var tree *Tree
+		var tree *Tree.Tree
 		var id uint16
-		for i, t := range Trees {
+		for i, t := range helpers.Trees {
 			if t.Root == task {
 				tree = t
 				id = uint16(i)
@@ -245,18 +246,18 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	muNodeFlagsRemarking.Lock()
+	helpers.MuNodeFlagsRemarking.Lock()
 	if task.Parent.Left.Flag == 3 && task.Parent.Right.Flag == 3 {
 		task.Parent.Flag = 2
 
-		muQueue.Lock()
-		if Queue.Len() == Queue.Cap() {
-			_ = Queue.Resize(Queue.Cap() + 1)
+		helpers.MuQueue.Lock()
+		if helpers.Queue.Len() == helpers.Queue.Cap() {
+			_ = helpers.Queue.Resize(helpers.Queue.Cap() + 1)
 		}
-		Queue.Enqueue(task.Parent)
-		muQueue.Unlock()
+		helpers.Queue.Enqueue(task.Parent)
+		helpers.MuQueue.Unlock()
 	}
-	muNodeFlagsRemarking.Unlock()
+	helpers.MuNodeFlagsRemarking.Unlock()
 }
 
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +294,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := GenerateJWT(user.Login)
+	tokenString, err := helpers.GenerateJWT(user.Login)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -318,7 +319,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtKey, nil
+			return helpers.JwtKey, nil
 		})
 
 		if err != nil {
@@ -328,11 +329,9 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			login := claims["login"].(string) // Get login from claims
+			login := claims["login"].(string)
 
-			// Create a new context with the login value
 			ctx := context.WithValue(r.Context(), "login", login)
-			// Create a new request with the updated context
 			r = r.WithContext(ctx)
 
 			next(w, r)

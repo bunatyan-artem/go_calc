@@ -1,6 +1,8 @@
 package orchestrator
 
 import (
+	"calculator/internal/orchestrator/Tree"
+	"calculator/internal/orchestrator/helpers"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"gopkg.in/fifo.v0"
@@ -19,8 +21,8 @@ func (app *Orchestrator) Run(port string) error {
 		log.Fatal("Error loading .env file")
 	}
 
-	Queue = fifo.New[*Node](1)
-	fillTrees()
+	helpers.Queue = fifo.New[*Tree.Node](1)
+	helpers.FillTrees()
 
 	m := mux.NewRouter()
 

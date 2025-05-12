@@ -261,6 +261,11 @@ func HandleSendTaskAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(500)
+		return
+	}
+
 	var user sql.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -281,6 +286,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(500)
+		return
+	}
+
 	var user sql.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
